@@ -7,8 +7,6 @@ from ccproxy.core.plugins import (
     SystemPluginRuntime,
 )
 from ccproxy.core.plugins.hooks import HookRegistry
-from ccproxy.plugins.analytics.ingest import AnalyticsIngestService
-from ccproxy.services.container import ServiceContainer
 
 from .config import AccessLogConfig
 from .hook import AccessLogHook
@@ -51,17 +49,15 @@ class AccessLogRuntime(SystemPluginRuntime):
 
         hook_registry.register(self.hook)
 
-        # Try to wire analytics ingest service if available
-        try:
-            registry = self.context.get(ServiceContainer)
-            self.hook.ingest_service = registry.get_service(AnalyticsIngestService)
+        # Try to wire analytics ingest service if available. Analytics registers
+        # it into the PluginRegistry under the name "analytics_ingest".
+        plugin_registry = self.context.plugin_registry
+        if plugin_registry is not None:
+            self.hook.ingest_service = plugin_registry.get_service("analytics_ingest")
             if not self.hook.ingest_service:
-                # optional service
                 logger.debug("access_log_analytics_service_not_found")
-        except Exception as e:
-            logger.warning(
-                "access_log_ingest_service_connect_failed", error=str(e), exc_info=e
-            )
+        else:
+            logger.debug("access_log_plugin_registry_unavailable")
         #
         # Consolidated ready summary at INFO
         logger.trace(
@@ -125,7 +121,9 @@ class AccessLogFactory(SystemPluginFactory):
             description="Simple access logging with Common, Combined, and Structured formats",
             is_provider=False,
             config_class=AccessLogConfig,
-            # dependencies=["analytics"], # optional, handled at runtime
+            # Initialize after analytics so its "analytics_ingest" service is
+            # already registered in PluginRegistry by the time we wire it up.
+            dependencies=["analytics"],
         )
         super().__init__(manifest)
 
