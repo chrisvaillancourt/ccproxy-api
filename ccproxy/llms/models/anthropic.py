@@ -352,8 +352,16 @@ class ThinkingConfigDisabled(ThinkingConfigBase):
     type: Literal["disabled"] = Field(default="disabled", alias="type")
 
 
+class ThinkingConfigAdaptive(ThinkingConfigBase):
+    """Configuration for adaptive thinking (Claude Code >=2.1.x)."""
+
+    type: Literal["adaptive"] = Field(default="adaptive", alias="type")
+    budget_tokens: int | None = Field(default=None, ge=1024)
+
+
 ThinkingConfig = Annotated[
-    ThinkingConfigEnabled | ThinkingConfigDisabled, Field(discriminator="type")
+    ThinkingConfigEnabled | ThinkingConfigDisabled | ThinkingConfigAdaptive,
+    Field(discriminator="type"),
 ]
 
 
