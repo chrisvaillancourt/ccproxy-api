@@ -1,5 +1,6 @@
 """Serve command for CCProxy API server - consolidates server-related commands."""
 
+import os
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -208,6 +209,14 @@ def api(
 
         # Pass CLI context to settings creation
         settings = Settings.from_config(config_path=config, cli_context=cli_context)
+
+        # Propagate the explicit config path to the uvicorn app factory.
+        # uvicorn re-imports create_app in a fresh context (factory=True) and
+        # calls Settings.from_config() with no args; without this env var the
+        # factory falls back to find_toml_config_file() and silently ignores
+        # the `-c` flag.
+        if config is not None:
+            os.environ["CONFIG_FILE"] = str(config)
 
         setup_logging(
             json_logs=settings.logging.format == "json",
