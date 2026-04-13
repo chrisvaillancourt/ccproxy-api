@@ -852,6 +852,12 @@ class PluginRegistry:
             service_container: Service container with all available services
         """
 
+        # Expose self so plugin contexts can look up the registry during
+        # _on_initialize (e.g. to register/resolve inter-plugin services like
+        # "log_storage" and "analytics_ingest"). Without this, contexts see
+        # plugin_registry=None and silently skip their wiring.
+        service_container.register_service(PluginRegistry, instance=self)
+
         # Resolve dependencies and get initialization order
         settings = service_container.settings
         order = self.resolve_dependencies(settings)

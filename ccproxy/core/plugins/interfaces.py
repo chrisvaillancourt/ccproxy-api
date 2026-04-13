@@ -161,8 +161,15 @@ class BasePluginFactory(PluginFactory):
         # Add scheduler - not available in ServiceContainer, get from app state
         context.scheduler = None  # Will be set from app.state if needed
 
-        # Add plugin registry - not directly in ServiceContainer, get from app state
-        context.plugin_registry = None  # Will be set from app.state
+        # Plugin registry — registered into ServiceContainer by
+        # PluginRegistry.initialize_all so contexts can look up inter-plugin
+        # services (log_storage, analytics_ingest, etc.) during _on_initialize.
+        try:
+            from ccproxy.core.plugins.factories import PluginRegistry
+
+            context.plugin_registry = service_container.get_service(PluginRegistry)
+        except (ValueError, ImportError):
+            context.plugin_registry = None
 
         # Add OAuth registry for auth providers
         context.oauth_registry = service_container.get_oauth_registry()
