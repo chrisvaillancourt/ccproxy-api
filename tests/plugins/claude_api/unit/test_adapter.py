@@ -499,3 +499,119 @@ class TestClaudeAPIAdapter:
         assert "system" in result
         assert len(result["system"]) == 3
         assert all(block["_ccproxy_injected"] is True for block in result["system"])
+
+    @pytest.mark.asyncio
+    async def test_passthrough_client_headers_preserves_user_agent(
+        self,
+        mock_detection_service: ClaudeAPIDetectionService,
+        mock_auth_manager: Mock,
+        mock_http_pool_manager: Mock,
+    ) -> None:
+        """With passthrough_client_headers, client UA is not overwritten by CLI cache."""
+        from ccproxy.plugins.claude_api.config import ClaudeAPISettings
+
+        # CLI detection cache returns UA from system-installed CC
+        cli_headers = DetectedHeaders(
+            {"user-agent": "claude-cli/2.1.105 (external, cli)"}
+        )
+        mock_detection_service.get_detected_headers = Mock(return_value=cli_headers)
+
+        config = ClaudeAPISettings(passthrough_client_headers=True)
+        adapter = ClaudeAPIAdapter(
+            detection_service=mock_detection_service,
+            config=config,
+            auth_manager=mock_auth_manager,
+            http_pool_manager=mock_http_pool_manager,
+        )
+
+        body = json.dumps({"model": "claude-sonnet-4-6", "messages": []}).encode()
+        # Client sends its own UA
+        headers = {
+            "content-type": "application/json",
+            "user-agent": "claude-cli/2.1.98 (external, cli)",
+        }
+
+        _, result_headers = await adapter.prepare_provider_request(
+            body, headers, "/v1/messages"
+        )
+
+        # Client UA preserved, not overwritten by cached CLI headers
+        assert result_headers["user-agent"] == "claude-cli/2.1.98 (external, cli)"
+
+    @pytest.mark.asyncio
+    async def test_default_mode_overwrites_client_headers(
+        self,
+        mock_detection_service: ClaudeAPIDetectionService,
+        mock_auth_manager: Mock,
+        mock_http_pool_manager: Mock,
+    ) -> None:
+        """Default mode (passthrough=False) overwrites client headers with CLI cache."""
+        from ccproxy.plugins.claude_api.config import ClaudeAPISettings
+
+        cli_headers = DetectedHeaders(
+            {"user-agent": "claude-cli/2.1.105 (external, cli)"}
+        )
+        mock_detection_service.get_detected_headers = Mock(return_value=cli_headers)
+
+        config = ClaudeAPISettings(passthrough_client_headers=False)
+        adapter = ClaudeAPIAdapter(
+            detection_service=mock_detection_service,
+            config=config,
+            auth_manager=mock_auth_manager,
+            http_pool_manager=mock_http_pool_manager,
+        )
+
+        body = json.dumps({"model": "claude-sonnet-4-6", "messages": []}).encode()
+        headers = {
+            "content-type": "application/json",
+            "user-agent": "claude-cli/2.1.98 (external, cli)",
+        }
+
+        _, result_headers = await adapter.prepare_provider_request(
+            body, headers, "/v1/messages"
+        )
+
+        # CLI cache overwrites client UA
+        assert result_headers["user-agent"] == "claude-cli/2.1.105 (external, cli)"
+
+    @pytest.mark.asyncio
+    async def test_passthrough_fills_gaps_from_cli_cache(
+        self,
+        mock_detection_service: ClaudeAPIDetectionService,
+        mock_auth_manager: Mock,
+        mock_http_pool_manager: Mock,
+    ) -> None:
+        """Passthrough still fills in headers the client didn't send."""
+        from ccproxy.plugins.claude_api.config import ClaudeAPISettings
+
+        cli_headers = DetectedHeaders(
+            {
+                "user-agent": "claude-cli/2.1.105 (external, cli)",
+                "x-stainless-lang": "js",
+            }
+        )
+        mock_detection_service.get_detected_headers = Mock(return_value=cli_headers)
+
+        config = ClaudeAPISettings(passthrough_client_headers=True)
+        adapter = ClaudeAPIAdapter(
+            detection_service=mock_detection_service,
+            config=config,
+            auth_manager=mock_auth_manager,
+            http_pool_manager=mock_http_pool_manager,
+        )
+
+        body = json.dumps({"model": "claude-sonnet-4-6", "messages": []}).encode()
+        # Client sends UA but not x-stainless-lang
+        headers = {
+            "content-type": "application/json",
+            "user-agent": "claude-cli/2.1.98 (external, cli)",
+        }
+
+        _, result_headers = await adapter.prepare_provider_request(
+            body, headers, "/v1/messages"
+        )
+
+        # Client UA preserved
+        assert result_headers["user-agent"] == "claude-cli/2.1.98 (external, cli)"
+        # Missing header filled from CLI cache
+        assert result_headers["x-stainless-lang"] == "js"
