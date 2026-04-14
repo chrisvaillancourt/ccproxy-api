@@ -46,6 +46,12 @@ class ClaudeAPISettings(ProviderConfig):
     # System prompt injection mode
     system_prompt_injection_mode: str = "minimal"  # "none", "minimal", or "full"
 
+    # Header passthrough mode
+    # When True, client-supplied headers take priority over cached CLI headers.
+    # Useful for transparent proxying where per-request User-Agent and other
+    # client headers should reach Anthropic unchanged.
+    passthrough_client_headers: bool = False
+
     # NEW: Auth manager override support
     auth_manager: str | None = (
         None  # Override auth manager name (e.g., 'oauth_claude_lb' for load balancing)

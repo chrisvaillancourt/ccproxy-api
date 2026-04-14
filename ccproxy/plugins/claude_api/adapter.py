@@ -4,6 +4,7 @@ import uuid
 from typing import Any, cast
 
 import httpx
+from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 
 from ccproxy.auth.exceptions import CredentialsInvalidError, OAuthTokenRefreshError
@@ -13,6 +14,7 @@ from ccproxy.core.plugins.interfaces import (
     TokenManagerProtocol,
 )
 from ccproxy.services.adapters.http_adapter import BaseHTTPAdapter
+from ccproxy.streaming import DeferredStreaming
 from ccproxy.utils.headers import (
     extract_response_headers,
     filter_request_headers,
@@ -40,6 +42,17 @@ class ClaudeAPIAdapter(BaseHTTPAdapter):
         )
 
         self.base_url = self.config.base_url.rstrip("/")
+
+    async def handle_request(
+        self, request: Request
+    ) -> Response | StreamingResponse | DeferredStreaming:
+        """Set service_type metadata so streaming hooks can identify claude_api requests."""
+        ctx = request.state.context
+        if ctx is not None:
+            ctx.metadata.update(
+                {"service_type": "claude_api", "provider": "claude_api"}
+            )
+        return await super().handle_request(request)
 
     async def get_target_url(self, endpoint: str) -> str:
         return f"{self.base_url}/v1/messages"
@@ -90,10 +103,13 @@ class ClaudeAPIAdapter(BaseHTTPAdapter):
         filtered_headers["anthropic-version"] = "2023-06-01"
         filtered_headers["anthropic-beta"] = "computer-use-2025-01-24"
 
-        # Add CLI headers if available, but never allow overriding auth
+        # Add CLI headers if available, but never allow overriding auth.
+        # When passthrough_client_headers is True, client-supplied headers
+        # take priority — cached CLI headers only fill gaps.
         cli_headers = self._collect_cli_headers()
         if cli_headers:
             blocked_overrides = {"authorization", "x-api-key"}
+            passthrough = self.config.passthrough_client_headers
             for key, value in cli_headers.items():
                 lk = key.lower()
                 if lk in blocked_overrides:
@@ -102,6 +118,8 @@ class ClaudeAPIAdapter(BaseHTTPAdapter):
                         header=lk,
                         reason="preserve_oauth_auth_header",
                     )
+                    continue
+                if passthrough and lk in filtered_headers:
                     continue
                 filtered_headers[lk] = value
 
