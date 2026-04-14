@@ -17,11 +17,11 @@ Community articles reported CC v2.1.100+ silently bills ~20K extra tokens per re
 - The extra tokens don't appear in `/context` and aren't in Anthropic's changelog
 - GitHub issue: anthropics/claude-code#46917 (open, labeled "bug", "has repro", "area:cost")
 
-Source material saved in repo root (not for commit):
+Source material (markdown exports saved in repo root, not for commit):
 
-- `Claude_Code_may_be_burning_your_limits_with_invisible_tokens_-_Efficienist.md`
-- `Why_Claude_Code_Max_burns_limits_40%_faster_with_20K_less_usable_context_Proxy_evidence_inside_rClau.md`
-- `Usage_limits_hit_me_out_of_the_blue!_Found_a_20K_phantom_token_bug_+_cache_issues_Evidence_and_fix_i.md`
+- [Claude Code may be burning your limits with invisible tokens](https://efficienist.com/claude-code-may-be-burning-your-limits-with-invisible-tokens-you-cant-see-or-audit/)
+- [Why Claude Code Max burns limits 40% faster with 20K less usable context. Proxy evidence inside. : r/ClaudeAI](https://www.reddit.com/r/ClaudeAI/comments/1sj8o9l/why_claude_code_max_burns_limits_40_faster_with/)
+- [Usage limits hit me out of the blue! Found a 20K phantom token bug + cache issues. Evidence and fix inside. : r/ClaudeCode](https://www.reddit.com/r/ClaudeCode/comments/1sj10ou/usage_limits_hit_me_out_of_the_blue_found_a_20k/)
 
 ## Investigation
 
